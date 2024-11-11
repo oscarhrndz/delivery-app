@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:deliverit/Views/registration_view.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class LoginScreen extends StatefulWidget {
-  final VoidCallback onLogin; // Add this line for the callback
+  final VoidCallback onLogin;
 
-  const LoginScreen({super.key, required this.onLogin}); // Modify constructor
+  const LoginScreen({super.key, required this.onLogin});
 
   @override
   _LoginScreenState createState() => _LoginScreenState();
@@ -15,10 +16,10 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _rememberMe = true;
   bool _isHoveringPrivacyPolicy = false;
   bool _isHoveringCreateAccount = false;
-  bool _isLoading = false; // Track loading state
+  bool _isLoading = false;
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  String? _errorMessage; // For storing error messages
+  String? _errorMessage;
 
   void _togglePasswordVisibility() {
     setState(() {
@@ -32,16 +33,11 @@ class _LoginScreenState extends State<LoginScreen> {
     });
   }
 
-  void _onAcceptTapped() {
-    debugPrint('Terms and Conditions accepted');
-  }
-
   void _onPrivacyPolicyTapped() {
     debugPrint('Privacy Policy tapped');
   }
 
   void _onCreateAccountTapped() {
-    // Navigate to RegistrationView
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => RegistrationScreen(),
@@ -49,25 +45,36 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  void _handleLogin() {
+  void _handleLogin() async {
     setState(() {
-      _errorMessage = null; // Reset error message
-      _isLoading = true; // Start loading
+      _errorMessage = null;
+      _isLoading = true;
     });
 
-    // Simulate a login process (replace with your actual logic)
-    Future.delayed(const Duration(seconds: 2), () {
-      if (_emailController.text.isNotEmpty && _passwordController.text.isNotEmpty) {
-        // Simulate successful login
-        widget.onLogin(); // Call the callback on successful login
-      } else {
-        // Simulate login failure
+    try {
+      String email = _emailController.text.trim();
+      String password = _passwordController.text.trim();
+
+      if (email.isEmpty || password.isEmpty) {
         setState(() {
           _errorMessage = 'Please fill in all fields';
-          _isLoading = false; // Stop loading
+          _isLoading = false;
         });
+        return;
       }
-    });
+
+      UserCredential userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      widget.onLogin();
+    } on FirebaseAuthException catch (e) {
+      setState(() {
+        _errorMessage = e.message ?? 'An error occurred';
+        _isLoading = false;
+      });
+    }
   }
 
   @override
@@ -83,23 +90,23 @@ class _LoginScreenState extends State<LoginScreen> {
             builder: (context, constraints) {
               return Padding(
                 padding: EdgeInsets.symmetric(
-                  horizontal: screenWidth * 0.08, // Responsive padding
+                  horizontal: screenWidth * 0.08,
                 ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     SizedBox(height: screenHeight * 0.05),
                     Text(
-                      'GetIT', // Replace with your desired text
+                      'GetIT',
                       style: TextStyle(
                         fontFamily: 'RampartOne',
-                        fontSize: screenWidth * 0.1, // Adjust the font size as needed
-                        color: Colors.black, // Change color if needed
+                        fontSize: screenWidth * 0.1,
+                        color: Colors.black,
                       ),
                     ),
                     SizedBox(height: screenHeight * 0.03),
                     Container(
-                      padding: EdgeInsets.all(screenWidth * 0.05), // Responsive padding
+                      padding: EdgeInsets.all(screenWidth * 0.05),
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.8),
                         borderRadius: BorderRadius.circular(8.0),
@@ -139,14 +146,11 @@ class _LoginScreenState extends State<LoginScreen> {
                                   width: 1.5,
                                 ),
                               ),
-                              GestureDetector(
-                                onTap: _onAcceptTapped,
-                                child: const Text(
-                                  "I accept Terms and Conditions",
-                                  style: TextStyle(
-                                    color: Colors.black,
-                                    fontSize: 15.0,
-                                  ),
+                              const Text(
+                                "Remember me",
+                                style: TextStyle(
+                                  color: Colors.black,
+                                  fontSize: 15.0,
                                 ),
                               ),
                             ],
@@ -232,9 +236,7 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Text(
             "Read Privacy Policy",
             style: TextStyle(
-              color: _isHoveringPrivacyPolicy
-                  ? Colors.blue
-                  : const Color(0xFF999A9A),
+              color: _isHoveringPrivacyPolicy ? Colors.blue : const Color(0xFF999A9A),
               fontSize: 15.0,
             ),
           ),
@@ -247,7 +249,7 @@ class _LoginScreenState extends State<LoginScreen> {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
-        onPressed: _isLoading ? null : _handleLogin, // Disable if loading
+        onPressed: _isLoading ? null : _handleLogin,
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF292726),
           foregroundColor: Colors.white,
@@ -256,7 +258,7 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
         child: _isLoading
-            ? CircularProgressIndicator(color: Colors.white) // Show loading indicator
+            ? CircularProgressIndicator(color: Colors.white)
             : const Text('LOGIN'),
       ),
     );
@@ -284,8 +286,8 @@ class _LoginScreenState extends State<LoginScreen> {
         },
         child: Image.asset(
           assetPath,
-          height: screenWidth * 0.08, // Adjust height as necessary
-          width: screenWidth * 0.08, // Adjust width as necessary
+          height: screenWidth * 0.08,
+          width: screenWidth * 0.08,
         ),
       ),
     );

@@ -1,6 +1,6 @@
-// ignore_for_file: library_private_types_in_public_api, unused_element
-
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class RegistrationScreen extends StatefulWidget {
   const RegistrationScreen({super.key});
@@ -12,6 +12,13 @@ class RegistrationScreen extends StatefulWidget {
 class _RegistrationScreenState extends State<RegistrationScreen> {
   bool _obscureText2 = true;
   bool _acceptTermsAndConditions = false;
+  final _formKey = GlobalKey<FormState>();
+
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _dobController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _phoneNumberController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController(); // Added password controller
 
   void _togglePasswordVisibility2() {
     setState(() {
@@ -21,9 +28,59 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
   void _toggleAcceptTermsAndConditions(bool? val) {
     setState(() {
-      _acceptTermsAndConditions = !_acceptTermsAndConditions;
+      _acceptTermsAndConditions = val ?? false;
     });
   }
+
+  Future<void> _registerUser() async {
+  if (_formKey.currentState!.validate()) {
+    try {
+      // Create a new user with Firebase Auth
+      UserCredential userCredential = await FirebaseAuth.instance
+          .createUserWithEmailAndPassword(
+        email: _emailController.text,
+        password: _passwordController.text, // Use entered password
+      );
+
+      // Add user details to Firestore
+      await FirebaseFirestore.instance.collection('users').doc(userCredential.user?.uid).set({
+        'name': _nameController.text,
+        'dob': _dobController.text,
+        'email': _emailController.text,
+        'phone': _phoneNumberController.text,
+        'createdAt': Timestamp.now(),
+      });
+
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Account created successfully!',
+            style: TextStyle(color: Colors.white),
+          ),
+          backgroundColor: Colors.green, // Green color for success
+        ),
+      );
+
+      // Navigate to the login screen
+      // ignore: use_build_context_synchronously
+      Navigator.pushReplacementNamed(context, '/login'); // Update with your login screen route
+    } catch (e) {
+      String errorMessage = 'Registration failed. Please try again.';
+      if (e is FirebaseAuthException) {
+        if (e.code == 'weak-password') {
+          errorMessage = 'The password is too weak.';
+        } else if (e.code == 'email-already-in-use') {
+          errorMessage = 'The account already exists for that email.';
+        }
+      }
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(errorMessage),
+      ));
+    }
+  }
+}
+
 
   @override
   Widget build(BuildContext context) {
@@ -104,38 +161,79 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   ),
                   const SizedBox(height: 20),
                   // Form fields and update button, with same width
-                  Column(
-                    children: const [
-                      ProfileTextField(
-                        label: 'Mariia Bulavenko',
-                        icon: Icons.person_2_outlined,
-                        width: 337.67,
-                        height: 58.72,
-                        borderWidth: 1,
-                      ),
-                      SizedBox(height: 10),
-                      ProfileTextField(
-                        label: 'dd/mm/yyyy',
-                        icon: Icons.calendar_today_outlined,
-                        width: 337.67,
-                        height: 58.72,
-                        borderWidth: 1,
-                      ),
-                      SizedBox(height: 10),
-                      PhoneNumberField(),
-                      SizedBox(height: 10),
-                      ProfileTextField(
-                        label: 'mariiab@extramus.eu',
-                        icon: Icons.email_outlined,
-                        width: 337.67,
-                        height: 58.72,
-                        borderWidth: 1,
-                      ),
-                      SizedBox(height: 20),
-                      _CreateAccountButton(),
-                      SizedBox(height: 16),
-                      HoverableText(),
-                    ],
+                  Form(
+                    key: _formKey,
+                    child: Column(
+                      children: [
+                        ProfileTextField(
+                          controller: _nameController,
+                          label: 'Name',
+                          icon: Icons.person_2_outlined,
+                          width: 337.67,
+                          height: 58.72,
+                          borderWidth: 1,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter your name';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 10),
+                        ProfileTextField(
+                          controller: _dobController,
+                          label: 'dd/mm/yyyy',
+                          icon: Icons.calendar_today_outlined,
+                          width: 337.67,
+                          height: 58.72,
+                          borderWidth: 1,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter your date of birth';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 10),
+                        PhoneNumberField(controller: _phoneNumberController),
+                        const SizedBox(height: 10),
+                        ProfileTextField(
+                          controller: _emailController,
+                          label: 'Email',
+                          icon: Icons.email_outlined,
+                          width: 337.67,
+                          height: 58.72,
+                          borderWidth: 1,
+                          validator: (value) {
+                            if (value == null || value.isEmpty || !value.contains('@')) {
+                              return 'Please enter a valid email';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 10),
+                        ProfileTextField(
+                          controller: _passwordController,
+                          label: 'Password',
+                          icon: Icons.lock_outline,
+                          width: 337.67,
+                          height: 58.72,
+                          borderWidth: 1,
+                          obscureText: _obscureText2,
+                          togglePasswordVisibility: _togglePasswordVisibility2,
+                          validator: (value) {
+                            if (value == null || value.isEmpty || value.length < 6) {
+                              return 'Password must be at least 6 characters';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 20),
+                        _CreateAccountButton(onPressed: _registerUser),
+                        const SizedBox(height: 16),
+                        const HoverableText(), // Add HoverableText here
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -156,24 +254,25 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       child: GestureDetector(
         onTap: onTap,
         child: ColorFiltered(
-        colorFilter: const ColorFilter.mode(
-          Colors.white, // Apply white color
-          BlendMode.srcIn, // Blend mode
-        ),
-        child: Image.asset(
-          assetPath,
-          height: screenWidth * 0.08,
-          width: screenWidth * 0.08,
+          colorFilter: const ColorFilter.mode(
+            Colors.white, // Apply white color
+            BlendMode.srcIn, // Blend mode
+          ),
+          child: Image.asset(
+            assetPath,
+            height: screenWidth * 0.08,
+            width: screenWidth * 0.08,
+          ),
         ),
       ),
-      )
     );
   }
 }
 
 // Create Account Button
 class _CreateAccountButton extends StatelessWidget {
-  const _CreateAccountButton({super.key});
+  final VoidCallback onPressed;
+  const _CreateAccountButton({super.key, required this.onPressed});
 
   @override
   Widget build(BuildContext context) {
@@ -187,7 +286,7 @@ class _CreateAccountButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(10),
           ),
         ),
-        onPressed: () {},
+        onPressed: onPressed,
         child: const Text(
           'Create New Account',
           style: TextStyle(
@@ -209,6 +308,10 @@ class ProfileTextField extends StatelessWidget {
   final double width;
   final double height;
   final double borderWidth;
+  final TextEditingController controller;
+  final String? Function(String?)? validator;
+  final bool obscureText;
+  final VoidCallback? togglePasswordVisibility;
 
   const ProfileTextField({
     super.key,
@@ -217,11 +320,18 @@ class ProfileTextField extends StatelessWidget {
     required this.width,
     required this.height,
     required this.borderWidth,
+    required this.controller,
+    this.validator,
+    this.obscureText = false,
+    this.togglePasswordVisibility,
   });
 
   @override
   Widget build(BuildContext context) {
-    return TextField(
+    return TextFormField(
+      controller: controller,
+      obscureText: obscureText,
+      validator: validator,
       decoration: InputDecoration(
         filled: true,
         fillColor: const Color(0xFF3E3D3B),
@@ -231,10 +341,15 @@ class ProfileTextField extends StatelessWidget {
           color: Color(0xFFFCFCFC),
           fontSize: 16,
         ),
-        suffixIcon: Padding(
-          padding: const EdgeInsets.only(right: 10.0),
-          child: Icon(icon, color: Colors.white),
-        ),
+        suffixIcon: obscureText
+            ? IconButton(
+                icon: Icon(
+                  obscureText ? Icons.visibility : Icons.visibility_off,
+                  color: Colors.white,
+                ),
+                onPressed: togglePasswordVisibility,
+              )
+            : Icon(icon, color: Colors.white),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
           borderSide: BorderSide.none,
@@ -249,16 +364,9 @@ class ProfileTextField extends StatelessWidget {
   }
 }
 
-class PhoneNumberField extends StatefulWidget {
-  const PhoneNumberField({super.key});
-
-  @override
-  _PhoneNumberFieldState createState() => _PhoneNumberFieldState();
-}
-
-class _PhoneNumberFieldState extends State<PhoneNumberField> {
-  String selectedCountryCode = '+39';
-  final TextEditingController phoneNumberController = TextEditingController();
+class PhoneNumberField extends StatelessWidget {
+  final TextEditingController controller;
+  const PhoneNumberField({super.key, required this.controller});
 
   @override
   Widget build(BuildContext context) {
@@ -272,7 +380,7 @@ class _PhoneNumberFieldState extends State<PhoneNumberField> {
         children: [
           // Dropdown Button
           DropdownButton<String>(
-            value: selectedCountryCode,
+            value: '+39',
             dropdownColor:
                 const Color(0xFF3E3D3B), // Dropdown menu background color
             style: const TextStyle(
@@ -289,21 +397,16 @@ class _PhoneNumberFieldState extends State<PhoneNumberField> {
                 child: Text(value),
               );
             }).toList(),
-            onChanged: (String? newValue) {
-              setState(() {
-                selectedCountryCode = newValue!;
-              });
-            },
+            onChanged: (String? newValue) {},
           ),
           const SizedBox(width: 8),
           // Phone Number Input Field
           Expanded(
             child: TextField(
-              controller: phoneNumberController,
+              controller: controller,
               decoration: InputDecoration(
                 hintText: 'Enter phone number',
-                hintStyle: const TextStyle(
-                    color: Colors.white), // Change hint text color to white
+                hintStyle: const TextStyle(color: Colors.white), // Change hint text color to white
                 border: InputBorder.none, // Remove border
                 suffixIcon: const Icon(
                   Icons.phone_outlined,
@@ -321,6 +424,7 @@ class _PhoneNumberFieldState extends State<PhoneNumberField> {
   }
 }
 
+// Hoverable Text Widget
 class HoverableText extends StatefulWidget {
   const HoverableText({super.key});
 
@@ -333,30 +437,27 @@ class _HoverableTextState extends State<HoverableText> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {},
-      child: MouseRegion(
-        onEnter: (_) => _onHover(true),
-        onExit: (_) => _onHover(false),
-        cursor: SystemMouseCursors.click,
-        child: Text(
-          "I have registration code",
-          style: TextStyle(
-            fontFamily: 'Poppins',
-            color: _isHovered
-                ? Colors.greenAccent
-                : const Color.fromARGB(255, 233, 233, 233),
-            fontWeight: FontWeight.w400,
-            fontSize: 16,
-          ),
+    return MouseRegion(
+      onEnter: (_) {
+        setState(() {
+          _isHovered = true;
+        });
+      },
+      onExit: (_) {
+        setState(() {
+          _isHovered = false;
+        });
+      },
+      child: Text(
+        'By signing up, you agree to our Terms & Conditions',
+        style: TextStyle(
+          fontFamily: 'Poppins',
+          fontSize: 14,
+          color: _isHovered ? Colors.blue : Colors.white,
+          fontWeight: FontWeight.w500,
+          decoration: _isHovered ? TextDecoration.underline : TextDecoration.none,
         ),
       ),
     );
-  }
-
-  void _onHover(bool hover) {
-    setState(() {
-      _isHovered = hover;
-    });
   }
 }

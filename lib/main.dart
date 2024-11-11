@@ -3,11 +3,17 @@ import 'package:deliverit/Views/settings_view.dart';
 import 'package:deliverit/Views/home_view.dart';
 import 'package:deliverit/Views/search_view.dart';
 import 'package:deliverit/Views/like_view.dart';
-import 'package:deliverit/Widgets/bottom_nav_bar.dart';
 import 'package:deliverit/Views/login_view.dart';
+import 'package:deliverit/Views/registration_view.dart';
+import 'package:deliverit/Widgets/bottom_nav_bar.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
-void main() {
-  runApp(MyApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
+
+  runApp(const MyApp());
 }
 
 class MyApp extends StatefulWidget {
@@ -18,8 +24,8 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  int _selectedIndex = 0; // Default index for Home
-  bool _isLoggedIn = false; // Variable to track login status
+  int _selectedIndex = 0;
+  bool _isLoggedIn = false;
 
   final List<Widget> _pages = [
     HomeView(),
@@ -28,16 +34,22 @@ class _MyAppState extends State<MyApp> {
     SettingsView(),
   ];
 
+  @override
+  void initState() {
+    super.initState();
+    _isLoggedIn = false;
+  }
+
   void _onItemTapped(int index) {
     setState(() {
-      _selectedIndex = index; // Update selected index
+      _selectedIndex = index;
     });
   }
 
   void _login() {
     setState(() {
-      _isLoggedIn = true; // Update login status
-      _selectedIndex = 0; // Set selected index to HomeView after login
+      _isLoggedIn = true;
+      _selectedIndex = 0;
     });
   }
 
@@ -47,27 +59,31 @@ class _MyAppState extends State<MyApp> {
       debugShowCheckedModeBanner: false,
       title: 'Flutter App',
       theme: ThemeData(primarySwatch: Colors.pink),
-      home: Scaffold(
-        body: WillPopScope(
-          onWillPop: () async {
-            if (_selectedIndex != 0) {
-              // If not on HomeView, navigate back to HomeView
-              _onItemTapped(0);
-              return false; // Prevent default back action
-            }
-            return true; // Allow default back action
-          },
-          child: _isLoggedIn 
-              ? _pages[_selectedIndex] // Display the selected page if logged in
-              : LoginScreen(onLogin: _login), // Show LoginScreen if not logged in
-        ),
-        bottomNavigationBar: _isLoggedIn // Only show the BottomNavBar if logged in
-            ? BottomNavBar(
-                selectedIndex: _selectedIndex,
-                onItemSelected: _onItemTapped,
-              )
-            : null, // Hide BottomNavBar if not logged in
-      ),
+      initialRoute: '/',
+      routes: {
+        '/': (context) => Scaffold(
+              body: WillPopScope(
+                onWillPop: () async {
+                  if (_selectedIndex != 0) {
+                    _onItemTapped(0);
+                    return false;
+                  }
+                  return true;
+                },
+                child: _isLoggedIn
+                    ? _pages[_selectedIndex]
+                    : LoginScreen(onLogin: _login),
+              ),
+              bottomNavigationBar: _isLoggedIn
+                  ? BottomNavBar(
+                      selectedIndex: _selectedIndex,
+                      onItemSelected: _onItemTapped,
+                    )
+                  : null,
+            ),
+        '/login': (context) => LoginScreen(onLogin: _login),
+        '/register': (context) => RegistrationScreen(),
+      },
     );
   }
 }
